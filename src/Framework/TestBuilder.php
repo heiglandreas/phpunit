@@ -9,6 +9,7 @@
  */
 namespace PHPUnit\Framework;
 
+use Org_Heigl\PhpUnitStub\UnitTest;
 use PHPUnit\Util\Test as TestUtil;
 
 /**
@@ -55,7 +56,10 @@ final class TestBuilder
         $parameters = $constructor->getParameters();
 
         // TestCase() or TestCase($name)
-        if (\count($parameters) < 2) {
+        if ($theClass->implementsInterface(UnitTest::class)) {
+            $test = new $className(new \Org_Heigl\PhpUnitStub\TestCase(), $methodName);
+        }
+        else if (\count($parameters) < 2) {
             $test = $this->buildTestWithoutData($className);
         } // TestCase($name, $data)
         else {

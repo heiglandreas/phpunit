@@ -9,6 +9,7 @@
  */
 namespace PHPUnit\Framework;
 
+use Org_Heigl\PhpUnitStub\UnitTest;
 use PHPUnit\Runner\BaseTestRunner;
 use PHPUnit\Runner\Filter\Factory;
 use PHPUnit\Runner\PhptTestCase;
@@ -154,7 +155,7 @@ class TestSuite implements \IteratorAggregate, SelfDescribing, Test
             }
         }
 
-        if (!$theClass->isSubclassOf(TestCase::class)) {
+        if (!$theClass->isSubclassOf(TestCase::class) && ! $theClass->implementsInterface(UnitTest::class)) {
             $this->setName((string) $theClass);
 
             return;
@@ -191,7 +192,23 @@ class TestSuite implements \IteratorAggregate, SelfDescribing, Test
                 continue;
             }
 
+            if (! TestUtil::isTestMethod($method)) {
+                continue;
+            }
+
             $this->addTestMethod($theClass, $method);
+        }
+
+        if ($theClass->implementsInterface(UnitTest::class)) {
+            foreach ($theClass->getMethod('getTestMethods')->invoke($theClass) as $method) {
+                try {
+                    $reflectionMethod = $theClass->getMethod($method);
+                    // This would need to be modified to be able to use closures as tests
+                    $this->addTestMethod($theClass, $reflectionMethod);
+                } catch (\ReflectionException $e) {
+                    // Nothing to be done here...
+                }
+            }
         }
 
         if (empty($this->tests)) {
@@ -314,7 +331,7 @@ class TestSuite implements \IteratorAggregate, SelfDescribing, Test
                 }
             }
 
-            if (!$suiteMethod && !$testClass->isAbstract() && $testClass->isSubclassOf(TestCase::class)) {
+            if (!$suiteMethod && !$testClass->isAbstract() && ($testClass->isSubclassOf(TestCase::class) || $testClass->implementsInterface(\PHPUnit\Framework\Test::class))) {
                 $this->addTest(new self($testClass));
             }
         } else {
@@ -709,10 +726,6 @@ class TestSuite implements \IteratorAggregate, SelfDescribing, Test
      */
     protected function addTestMethod(\ReflectionClass $class, \ReflectionMethod $method): void
     {
-        if (!TestUtil::isTestMethod($method)) {
-            return;
-        }
-
         $methodName = $method->getName();
 
         if (!$method->isPublic()) {
